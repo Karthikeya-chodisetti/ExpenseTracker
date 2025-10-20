@@ -5,6 +5,7 @@ import com.expensetracker.service.ExpenseService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -13,11 +14,6 @@ public class ExpenseController {
 
     @Autowired
     private ExpenseService service;
-
-    @GetMapping
-    public List<Expense> getAllExpenses() {
-        return service.getAllExpenses();
-    }
 
     @PostMapping
     public Expense addExpense(@RequestBody Expense expense) {
@@ -31,6 +27,21 @@ public class ExpenseController {
 
     @GetMapping("/test")
     public String test() {
-        return "Expense Tracker API Working***";
+        return "Expense Tracker API Working!!";
+    }
+
+    @GetMapping
+    public List<Expense> getExpenses(
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end) {
+        if (category != null) {
+            return service.getExpensesByCategory(category);
+        } else if (start != null && end != null) {
+            LocalDateTime startDate = LocalDateTime.parse(start + "T00:00:00");
+            LocalDateTime endDate = LocalDateTime.parse(end + "T23:59:59");
+            return service.getExpensesByDateRange(startDate, endDate);
+        } else
+            return service.getAllExpenses();
     }
 }
