@@ -6,7 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.*;
 
 @RestController
 @RequestMapping("/expenses")
@@ -43,5 +43,32 @@ public class ExpenseController {
             return service.getExpensesByDateRange(startDate, endDate);
         } else
             return service.getAllExpenses();
+    }
+
+    @GetMapping("/summary")
+    public Map<String, Object> getSpendingSummary(
+            @RequestParam String period,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end) {
+
+        return service.getSpendingSummary(period, category, start, end);
+    }
+
+    @GetMapping("/summary/categories")
+    public Map<String, Object> getCategoryWiseSummary(
+            @RequestParam String period,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end) {
+
+        return service.getCategoryWiseSummary(period, start, end);
+    }
+
+    @GetMapping("/summary/daily")
+    public Map<String, Double> getDailySummary(
+            @RequestParam String start,
+            @RequestParam String end) {
+
+        return service.getDailySummary(start, end);
     }
 }
