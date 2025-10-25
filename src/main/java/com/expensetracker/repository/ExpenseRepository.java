@@ -13,4 +13,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
     List<Expense> findByDateBetween(LocalDateTime start, LocalDateTime end);
 
+    List<Expense> findByRecurrenceNot(String recurrence);
+
 }

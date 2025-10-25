@@ -5,6 +5,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -15,6 +17,11 @@ public class Expense {
     private String title;
     private double amount;
     private String category;
+    private String recurrence;
+    private boolean active = true;
+    private String note;
+    private String tags;
+    private LocalDate recurrenceEndDate;
 
     @CreationTimestamp
     private LocalDateTime date;
@@ -22,12 +29,18 @@ public class Expense {
     public Expense() {
     }
 
-    public Expense(Long id, String title, double amount, String category, LocalDateTime date) {
+    public Expense(Long id, String title, double amount, String category, LocalDateTime date, String recurrence,
+            boolean active, String note, String tags, LocalDate recurrenceEndDate) {
         this.id = id;
         this.title = title;
         this.amount = amount;
         this.category = category;
         this.date = date;
+        this.recurrence = recurrence;
+        this.active = active;
+        this.note = note;
+        this.tags = tags;
+        this.recurrenceEndDate = recurrenceEndDate;
     }
 
     public Long getId() {
@@ -69,4 +82,45 @@ public class Expense {
     public void setDate(LocalDateTime date) {
         this.date = date;
     }
+
+    public String getRecurrence() {
+        return recurrence;
+    }
+
+    public void setRecurrence(String recurrence) {
+        this.recurrence = recurrence;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+    public String getNote() {
+        return note;
+    }
+
+    public String getTags() {
+        return tags;
+    }
+
+    public LocalDate getRecurrenceEndDate() {
+        return recurrenceEndDate;
+    }
+
+    public void setNote(String note) {
+        this.note = note;
+    }
+
+    public void setTags(String tags) {
+        this.tags = tags;
+    }
+
+    public void setRecurrenceEndDate(LocalDate recurrenceEndDate) {
+        this.recurrenceEndDate = recurrenceEndDate;
+    }
+
 }

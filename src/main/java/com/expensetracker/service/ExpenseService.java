@@ -1,15 +1,16 @@
 package com.expensetracker.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import com.expensetracker.model.Expense;
 import com.expensetracker.repository.ExpenseRepository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
-import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,6 +36,29 @@ public class ExpenseService {
 
     public List<Expense> getExpensesByDateRange(LocalDateTime start, LocalDateTime end) {
         return repo.findByDateBetween(start, end);
+    }
+
+    public List<Expense> getFilteredExpenses(String category, LocalDateTime start, LocalDateTime end, Double minAmount,
+            Double maxAmount) {
+        List<Expense> expenses = repo.findAll();
+
+        if (category != null) {
+            expenses = expenses.stream().filter(e -> e.getCategory().equalsIgnoreCase(category)).toList();
+        }
+
+        if (start != null && end != null) {
+            expenses = expenses.stream().filter(e -> !e.getDate().isBefore(start) && !e.getDate().isAfter(end))
+                    .toList();
+        }
+
+        if (minAmount != null) {
+            expenses = expenses.stream().filter(e -> e.getAmount() >= minAmount).toList();
+        }
+
+        if (maxAmount != null) {
+            expenses = expenses.stream().filter(e -> e.getAmount() <= maxAmount).toList();
+        }
+        return expenses;
     }
 
     public Map<String, Object> getSpendingSummary(String period, String category, String start, String end) {
@@ -110,4 +134,70 @@ public class ExpenseService {
         return expenses.stream().collect(Collectors.groupingBy(e -> e.getDate().toLocalDate().toString(),
                 Collectors.summingDouble(Expense::getAmount)));
     }
+
+    public Expense updateExpense(Long id, Expense expenseDetails) {
+        Expense existing = repo.findById(id).orElseThrow(() -> new RuntimeException("Expense not found"));
+        existing.setAmount(expenseDetails.getAmount());
+        existing.setCategory(expenseDetails.getCategory());
+        existing.setDate(expenseDetails.getDate());
+        existing.setTitle(expenseDetails.getTitle());
+        existing.setRecurrence(expenseDetails.getRecurrence());
+        existing.setNote(expenseDetails.getNote());
+        existing.setTags(expenseDetails.getTags());
+        return repo.save(existing);
+    }
+
+    public List<Expense> getRecurringExpenses() {
+        return repo.findByRecurrenceNot("none");
+    }
+
+    @Scheduled(cron = "0 0 0 * * *")
+    public void generateRecurringExpenses() {
+        List<Expense> recurring = repo.findByRecurrenceNot("none");
+        LocalDate today = LocalDate.now();
+
+        for (Expense e : recurring) {
+            if (!e.isActive())
+                continue;
+            if (e.getRecurrenceEndDate() != null && today.isAfter(e.getRecurrenceEndDate()))
+                continue;
+            LocalDate lastDate = e.getDate().toLocalDate();
+            LocalDate nextDate = null;
+
+            switch (e.getRecurrence().toLowerCase()) {
+                case "daily":
+                    nextDate = lastDate.plusDays(1);
+                    break;
+                case "weekly":
+                    nextDate = lastDate.plusWeeks(1);
+                    break;
+                case "monthly":
+                    nextDate = lastDate.plusMonths(1);
+                    break;
+                default:
+                    continue;
+            }
+
+            if (nextDate.equals(today)) {
+                Expense newExpense = new Expense();
+                newExpense.setTitle(e.getTitle());
+                newExpense.setAmount(e.getAmount());
+                newExpense.setCategory(e.getCategory());
+                newExpense.setDate(nextDate.atStartOfDay());
+                newExpense.setRecurrence(e.getRecurrence());
+                newExpense.setActive(true);
+
+                e.setActive(false);
+                repo.save(e);
+                repo.save(newExpense);
+            }
+        }
+    }
+
+    public Expense setRecurringStatus(Long id, boolean status) {
+        Expense exp = repo.findById(id).orElseThrow(() -> new RuntimeException("Expense not found"));
+        exp.setActive(status);
+        return repo.save(exp);
+    }
+
 }
