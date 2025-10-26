@@ -5,11 +5,12 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class Expense {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

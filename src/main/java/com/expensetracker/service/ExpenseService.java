@@ -200,4 +200,33 @@ public class ExpenseService {
         return repo.save(exp);
     }
 
+    public List<Expense> searchExpenses(String keyword) {
+        String keyy = keyword.toLowerCase();
+        return repo.findAll().stream().filter(e -> (e.getTitle() != null && e.getTitle().toLowerCase().contains(keyy))
+                || (e.getNote() != null && e.getNote().toLowerCase().contains(keyy))
+                || (e.getTags() != null && e.getTags().toLowerCase().contains(keyy))).toList();
+    }
+
+    public List<Expense> getSortedExpenses(String sortBy, String order) {
+        List<Expense> all = repo.findAll();
+        Comparator<Expense> comp;
+
+        switch (sortBy.toLowerCase()) {
+            case "amount":
+                comp = Comparator.comparingDouble(Expense::getAmount);
+                break;
+            case "title":
+                comp = Comparator.comparing(Expense::getTitle, String.CASE_INSENSITIVE_ORDER);
+                break;
+            case "category":
+                comp = Comparator.comparing(Expense::getCategory, String.CASE_INSENSITIVE_ORDER);
+                break;
+            default:
+                comp = Comparator.comparing(Expense::getDate);
+        }
+        if (order.equalsIgnoreCase("desc"))
+            comp = comp.reversed();
+
+        return all.stream().sorted(comp).toList();
+    }
 }

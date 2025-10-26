@@ -34,15 +34,14 @@ public class ExpenseController {
     public List<Expense> getExpenses(
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String start,
-            @RequestParam(required = false) String end) {
-        if (category != null) {
-            return service.getExpensesByCategory(category);
-        } else if (start != null && end != null) {
-            LocalDateTime startDate = LocalDateTime.parse(start + "T00:00:00");
-            LocalDateTime endDate = LocalDateTime.parse(end + "T23:59:59");
-            return service.getExpensesByDateRange(startDate, endDate);
-        } else
-            return service.getAllExpenses();
+            @RequestParam(required = false) String end,
+            @RequestParam(required = false) Double minAmount,
+            @RequestParam(required = false) Double maxAmount) {
+
+        LocalDateTime startDate = start != null ? LocalDateTime.parse(start + "T00:00:00") : null;
+        LocalDateTime endDate = end != null ? LocalDateTime.parse(end + "T23:59:59") : null;
+
+        return service.getFilteredExpenses(category, startDate, endDate, minAmount, maxAmount);
     }
 
     @GetMapping("/summary")
@@ -90,6 +89,18 @@ public class ExpenseController {
     @PutMapping("/recurring/{id}/deactivate")
     public Expense deactivateRecurring(@PathVariable Long id) {
         return service.setRecurringStatus(id, false);
+    }
+
+    @GetMapping("/search")
+    public List<Expense> searchExpenses(@RequestParam String keyword) {
+        return service.searchExpenses(keyword);
+    }
+
+    @GetMapping("/sorted")
+    public List<Expense> getSortedExpenses(
+            @RequestParam(defaultValue = "date") String sortBy,
+            @RequestParam(defaultValue = "desc") String order) {
+        return service.getSortedExpenses(sortBy, order);
     }
 
 }
