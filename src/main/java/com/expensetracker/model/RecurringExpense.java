@@ -1,19 +1,12 @@
 package com.expensetracker.model;
 
-import org.hibernate.annotations.CreationTimestamp;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import com.fasterxml.jackson.annotation.JsonInclude;
-
 import java.time.LocalDateTime;
 
 @Entity
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class Expense {
+public class RecurringExpense {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -23,25 +16,10 @@ public class Expense {
     private String category;
     private String note;
     private String tags;
+    private String frequency;
+    private LocalDateTime nextDate;
 
-    @Column(nullable = false)
-    private Boolean active = true;
-
-    @CreationTimestamp
-    private LocalDateTime date;
-
-    public Expense() {
-    }
-
-    public Expense(Long id, String title, double amount, String category, LocalDateTime date, String note,
-            String tags) {
-        this.id = id;
-        this.title = title;
-        this.amount = amount;
-        this.category = category;
-        this.date = date;
-        this.note = note;
-        this.tags = tags;
+    public RecurringExpense() {
     }
 
     public Long getId() {
@@ -92,19 +70,19 @@ public class Expense {
         this.tags = tags;
     }
 
-    public LocalDateTime getDate() {
-        return date;
+    public String getFrequency() {
+        return frequency;
     }
 
-    public void setDate(LocalDateTime date) {
-        this.date = date;
+    public void setFrequency(String frequency) {
+        this.frequency = frequency;
     }
 
-    public Boolean getActive() {
-        return active;
+    public LocalDateTime getNextDate() {
+        return nextDate;
     }
 
-    public void setActive(Boolean active) {
-        this.active = active;
+    public void setNextDate(LocalDateTime nextDate) {
+        this.nextDate = nextDate;
     }
 }

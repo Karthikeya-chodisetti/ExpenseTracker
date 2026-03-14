@@ -76,21 +76,6 @@ public class ExpenseController {
         return service.updateExpense(id, expense);
     }
 
-    @GetMapping("/recurring")
-    public List<Expense> getRecurringExpenses() {
-        return service.getRecurringExpenses();
-    }
-
-    @PutMapping("/recurring/{id}/activate")
-    public Expense activateRecurring(@PathVariable Long id) {
-        return service.setRecurringStatus(id, true);
-    }
-
-    @PutMapping("/recurring/{id}/deactivate")
-    public Expense deactivateRecurring(@PathVariable Long id) {
-        return service.setRecurringStatus(id, false);
-    }
-
     @GetMapping("/search")
     public List<Expense> searchExpenses(@RequestParam String keyword) {
         return service.searchExpenses(keyword);
