@@ -9,6 +9,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.JoinColumn;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -30,11 +34,16 @@ public class Expense {
     @CreationTimestamp
     private LocalDateTime date;
 
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    @JsonIgnore
+    private User user;
+
     public Expense() {
     }
 
     public Expense(Long id, String title, double amount, String category, LocalDateTime date, String note,
-            String tags) {
+            String tags, User user) {
         this.id = id;
         this.title = title;
         this.amount = amount;
@@ -42,6 +51,7 @@ public class Expense {
         this.date = date;
         this.note = note;
         this.tags = tags;
+        this.user = user;
     }
 
     public Long getId() {
@@ -106,5 +116,13 @@ public class Expense {
 
     public void setActive(Boolean active) {
         this.active = active;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 }

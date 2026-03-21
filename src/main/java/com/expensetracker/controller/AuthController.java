@@ -42,7 +42,7 @@ public class AuthController {
         if (encoder.matches(user.getPassword(), dbUser.getPassword())) {
             return jwtUtil.generateToken(user.getUsername());
         }
-        System.out.println("Login API HIT");
+        // System.out.println("Login API HIT");
         throw new RuntimeException("Invalid credentials");
     }
 }

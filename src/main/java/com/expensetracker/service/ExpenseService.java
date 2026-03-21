@@ -1,50 +1,72 @@
 package com.expensetracker.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
-
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+
 import com.expensetracker.model.Expense;
+import com.expensetracker.model.User;
 import com.expensetracker.repository.ExpenseRepository;
+import com.expensetracker.repository.UserRepository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 public class ExpenseService {
+
     @Autowired
     private ExpenseRepository repo;
 
+    @Autowired
+    private UserRepository userRepo;
+
+    private User getCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String username = auth.getName();
+        return userRepo.findByUsername(username).orElseThrow();
+    }
+
     public List<Expense> getAllExpenses() {
-        return repo.findAll();
+        return repo.findByUser(getCurrentUser());
     }
 
     public Expense addExpense(Expense expense) {
+        expense.setUser(getCurrentUser());
         return repo.save(expense);
     }
 
     public void deleteExpense(Long id) {
+        User user = getCurrentUser();
+        Expense exp = repo.findById(id).orElseThrow(() -> new RuntimeException("Expense not found"));
+
+        if (!exp.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Unauthorized");
+        }
+
         repo.deleteById(id);
     }
 
     public List<Expense> getExpensesByCategory(String category) {
-        return repo.findByCategory(category);
+        return repo.findByUser(getCurrentUser()).stream()
+                .filter(e -> e.getCategory().equalsIgnoreCase(category))
+                .toList();
     }
 
     public List<Expense> getExpensesByDateRange(LocalDateTime start, LocalDateTime end) {
-        return repo.findByDateBetween(start, end);
+        return repo.findByUser(getCurrentUser()).stream()
+                .filter(e -> !e.getDate().isBefore(start) && !e.getDate().isAfter(end))
+                .toList();
     }
 
-    public List<Expense> getFilteredExpenses(String category, LocalDateTime start, LocalDateTime end, Double minAmount,
-            Double maxAmount) {
-        if (category == null && start == null && end == null && minAmount == null && maxAmount == null) {
-            return repo.findAll();
-        }
+    public List<Expense> getFilteredExpenses(String category, LocalDateTime start, LocalDateTime end,
+            Double minAmount, Double maxAmount) {
 
-        return repo.findAll().stream()
+        return repo.findByUser(getCurrentUser()).stream()
                 .filter(e -> category == null || e.getCategory().equalsIgnoreCase(category))
                 .filter(e -> start == null || !e.getDate().isBefore(start))
                 .filter(e -> end == null || !e.getDate().isAfter(end))
@@ -54,6 +76,7 @@ public class ExpenseService {
     }
 
     public Map<String, Object> getSpendingSummary(String period, String category, String start, String end) {
+
         LocalDateTime from, to;
 
         if (period.equalsIgnoreCase("day")) {
@@ -69,28 +92,37 @@ public class ExpenseService {
             from = LocalDate.parse(start).atStartOfDay();
             to = LocalDate.parse(end).atTime(23, 59, 59);
         } else {
-            throw new IllegalArgumentException("Invalid period or missing parameters");
+            throw new IllegalArgumentException("Invalid period");
         }
 
-        List<Expense> expenses = repo.findByDateBetween(from, to);
+        List<Expense> expenses = repo.findByUser(getCurrentUser()).stream()
+                .filter(e -> !e.getDate().isBefore(from) && !e.getDate().isAfter(to))
+                .toList();
+
         if (category != null) {
-            expenses = expenses.stream().filter(e -> e.getCategory().equalsIgnoreCase(category)).toList();
+            expenses = expenses.stream()
+                    .filter(e -> e.getCategory().equalsIgnoreCase(category))
+                    .toList();
         }
 
         double total = expenses.stream().mapToDouble(Expense::getAmount).sum();
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("period", period);
+        Map<String, Object> res = new HashMap<>();
+        res.put("period", period);
+        res.put("totalSpent", total);
+        res.put("from", from.toLocalDate().toString());
+        res.put("to", to.toLocalDate().toString());
+
         if (category != null)
-            response.put("category", category);
-        response.put("totalSpent", total);
-        response.put("from", from.toLocalDate().toString());
-        response.put("to", to.toLocalDate().toString());
-        return response;
+            res.put("category", category);
+
+        return res;
     }
 
     public Map<String, Object> getCategoryWiseSummary(String period, String start, String end) {
+
         LocalDateTime from, to;
+
         if (period.equalsIgnoreCase("day")) {
             from = LocalDate.now().atStartOfDay();
             to = LocalDateTime.now();
@@ -104,49 +136,75 @@ public class ExpenseService {
             from = LocalDate.parse(start).atStartOfDay();
             to = LocalDate.parse(end).atTime(23, 59, 59);
         } else {
-            throw new IllegalArgumentException("Invalid period or missing parameters");
+            throw new IllegalArgumentException("Invalid period");
         }
 
-        List<Expense> expenses = repo.findByDateBetween(from, to);
-        Map<String, Double> categoryTotals = expenses.stream()
-                .collect(Collectors.groupingBy(Expense::getCategory, Collectors.summingDouble(Expense::getAmount)));
+        List<Expense> expenses = repo.findByUser(getCurrentUser()).stream()
+                .filter(e -> !e.getDate().isBefore(from) && !e.getDate().isAfter(to))
+                .toList();
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("from", from.toLocalDate().toString());
-        response.put("to", to.toLocalDate().toString());
-        response.put("categoryTotals", categoryTotals);
-        return response;
+        Map<String, Double> map = expenses.stream()
+                .collect(Collectors.groupingBy(Expense::getCategory,
+                        Collectors.summingDouble(Expense::getAmount)));
+
+        Map<String, Object> res = new HashMap<>();
+        res.put("from", from.toLocalDate().toString());
+        res.put("to", to.toLocalDate().toString());
+        res.put("categoryTotals", map);
+
+        return res;
     }
 
     public Map<String, Double> getDailySummary(String start, String end) {
+
         LocalDateTime from = LocalDate.parse(start).atStartOfDay();
         LocalDateTime to = LocalDate.parse(end).atTime(23, 59, 59);
 
-        List<Expense> expenses = repo.findByDateBetween(from, to);
-        return expenses.stream().collect(Collectors.groupingBy(e -> e.getDate().toLocalDate().toString(),
-                Collectors.summingDouble(Expense::getAmount)));
+        List<Expense> expenses = repo.findByUser(getCurrentUser()).stream()
+                .filter(e -> !e.getDate().isBefore(from) && !e.getDate().isAfter(to))
+                .toList();
+
+        return expenses.stream()
+                .collect(Collectors.groupingBy(
+                        e -> e.getDate().toLocalDate().toString(),
+                        Collectors.summingDouble(Expense::getAmount)));
     }
 
     public Expense updateExpense(Long id, Expense expenseDetails) {
-        Expense existing = repo.findById(id).orElseThrow(() -> new RuntimeException("Expense not found"));
+
+        User user = getCurrentUser();
+        Expense existing = repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Expense not found"));
+
+        if (!existing.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Unauthorized");
+        }
+
         existing.setAmount(expenseDetails.getAmount());
         existing.setCategory(expenseDetails.getCategory());
         existing.setDate(expenseDetails.getDate());
         existing.setTitle(expenseDetails.getTitle());
         existing.setNote(expenseDetails.getNote());
         existing.setTags(expenseDetails.getTags());
+
         return repo.save(existing);
     }
 
     public List<Expense> searchExpenses(String keyword) {
-        String keyy = keyword.toLowerCase();
-        return repo.findAll().stream().filter(e -> (e.getTitle() != null && e.getTitle().toLowerCase().contains(keyy))
-                || (e.getNote() != null && e.getNote().toLowerCase().contains(keyy))
-                || (e.getTags() != null && e.getTags().toLowerCase().contains(keyy))).toList();
+
+        String key = keyword.toLowerCase();
+
+        return repo.findByUser(getCurrentUser()).stream()
+                .filter(e -> (e.getTitle() != null && e.getTitle().toLowerCase().contains(key))
+                        || (e.getNote() != null && e.getNote().toLowerCase().contains(key))
+                        || (e.getTags() != null && e.getTags().toLowerCase().contains(key)))
+                .toList();
     }
 
     public List<Expense> getSortedExpenses(String sortBy, String order) {
-        List<Expense> all = repo.findAll();
+
+        List<Expense> all = repo.findByUser(getCurrentUser());
+
         Comparator<Expense> comp;
 
         switch (sortBy.toLowerCase()) {
@@ -162,6 +220,7 @@ public class ExpenseService {
             default:
                 comp = Comparator.comparing(Expense::getDate);
         }
+
         if (order.equalsIgnoreCase("desc"))
             comp = comp.reversed();
 
