@@ -3,6 +3,9 @@ package com.expensetracker.controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import com.expensetracker.dto.AuthRequestDTO;
+import com.expensetracker.dto.AuthResponseDTO;
+
 import com.expensetracker.model.User;
 import com.expensetracker.repository.UserRepository;
 import com.expensetracker.security.JwtUtil;
@@ -21,11 +24,13 @@ public class AuthController {
     private PasswordEncoder encoder;
 
     @PostMapping("/register")
-    public String register(@RequestBody User user) {
-        if (repo.findByUsername(user.getUsername()).isPresent()) {
+    public String register(@RequestBody AuthRequestDTO request) {
+        if (repo.findByUsername(request.getUsername()).isPresent()) {
             throw new RuntimeException("User already exists");
         }
-        user.setPassword(encoder.encode(user.getPassword()));
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setPassword(encoder.encode(request.getPassword()));
         user.setRole("ROLE_USER");
         repo.save(user);
         return "User Registered";
@@ -35,14 +40,14 @@ public class AuthController {
     private JwtUtil jwtUtil;
 
     @PostMapping("/login")
-    public String login(@RequestBody User user) {
-        User dbUser = repo.findByUsername(user.getUsername())
+    public AuthResponseDTO login(@RequestBody AuthRequestDTO request) {
+        User dbUser = repo.findByUsername(request.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (encoder.matches(user.getPassword(), dbUser.getPassword())) {
-            return jwtUtil.generateToken(user.getUsername());
+        if (encoder.matches(request.getPassword(), dbUser.getPassword())) {
+            String token = jwtUtil.generateToken(dbUser.getUsername());
+            return new AuthResponseDTO(token);
         }
-        // System.out.println("Login API HIT");
         throw new RuntimeException("Invalid credentials");
     }
 }

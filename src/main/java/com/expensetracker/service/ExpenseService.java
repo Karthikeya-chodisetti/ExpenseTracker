@@ -10,6 +10,9 @@ import com.expensetracker.model.User;
 import com.expensetracker.repository.ExpenseRepository;
 import com.expensetracker.repository.UserRepository;
 
+import com.expensetracker.dto.ExpenseRequestDTO;
+import com.expensetracker.dto.ExpenseResponseDTO;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
@@ -31,18 +34,48 @@ public class ExpenseService {
         return userRepo.findByUsername(username).orElseThrow();
     }
 
-    public List<Expense> getAllExpenses() {
-        return repo.findByUser(getCurrentUser());
+    private ExpenseResponseDTO mapToDTO(Expense e) {
+        return new ExpenseResponseDTO(
+                e.getId(),
+                e.getAmount(),
+                e.getCategory(),
+                e.getTitle(),
+                e.getNote(),
+                e.getTags(),
+                e.getDate());
     }
 
-    public Expense addExpense(Expense expense) {
+    public List<ExpenseResponseDTO> getAllExpenses() {
+        return repo.findByUser(getCurrentUser())
+                .stream()
+                .map(this::mapToDTO)
+                .toList();
+    }
+
+    public ExpenseResponseDTO addExpense(ExpenseRequestDTO dto) {
+
+        Expense expense = new Expense();
+
+        expense.setAmount(dto.getAmount());
+        expense.setCategory(dto.getCategory());
+        expense.setTitle(dto.getTitle());
+        expense.setNote(dto.getNote());
+        expense.setTags(dto.getTags());
+        expense.setDate(dto.getDate());
+
         expense.setUser(getCurrentUser());
-        return repo.save(expense);
+
+        Expense saved = repo.save(expense);
+
+        return mapToDTO(saved);
     }
 
     public void deleteExpense(Long id) {
+
         User user = getCurrentUser();
-        Expense exp = repo.findById(id).orElseThrow(() -> new RuntimeException("Expense not found"));
+
+        Expense exp = repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Expense not found"));
 
         if (!exp.getUser().getId().equals(user.getId())) {
             throw new RuntimeException("Unauthorized");
@@ -51,19 +84,7 @@ public class ExpenseService {
         repo.deleteById(id);
     }
 
-    public List<Expense> getExpensesByCategory(String category) {
-        return repo.findByUser(getCurrentUser()).stream()
-                .filter(e -> e.getCategory().equalsIgnoreCase(category))
-                .toList();
-    }
-
-    public List<Expense> getExpensesByDateRange(LocalDateTime start, LocalDateTime end) {
-        return repo.findByUser(getCurrentUser()).stream()
-                .filter(e -> !e.getDate().isBefore(start) && !e.getDate().isAfter(end))
-                .toList();
-    }
-
-    public List<Expense> getFilteredExpenses(String category, LocalDateTime start, LocalDateTime end,
+    public List<ExpenseResponseDTO> getFilteredExpenses(String category, LocalDateTime start, LocalDateTime end,
             Double minAmount, Double maxAmount) {
 
         return repo.findByUser(getCurrentUser()).stream()
@@ -72,6 +93,7 @@ public class ExpenseService {
                 .filter(e -> end == null || !e.getDate().isAfter(end))
                 .filter(e -> minAmount == null || e.getAmount() >= minAmount)
                 .filter(e -> maxAmount == null || e.getAmount() <= maxAmount)
+                .map(this::mapToDTO)
                 .toList();
     }
 
@@ -108,6 +130,7 @@ public class ExpenseService {
         double total = expenses.stream().mapToDouble(Expense::getAmount).sum();
 
         Map<String, Object> res = new HashMap<>();
+
         res.put("period", period);
         res.put("totalSpent", total);
         res.put("from", from.toLocalDate().toString());
@@ -144,10 +167,12 @@ public class ExpenseService {
                 .toList();
 
         Map<String, Double> map = expenses.stream()
-                .collect(Collectors.groupingBy(Expense::getCategory,
+                .collect(Collectors.groupingBy(
+                        Expense::getCategory,
                         Collectors.summingDouble(Expense::getAmount)));
 
         Map<String, Object> res = new HashMap<>();
+
         res.put("from", from.toLocalDate().toString());
         res.put("to", to.toLocalDate().toString());
         res.put("categoryTotals", map);
@@ -170,9 +195,10 @@ public class ExpenseService {
                         Collectors.summingDouble(Expense::getAmount)));
     }
 
-    public Expense updateExpense(Long id, Expense expenseDetails) {
+    public ExpenseResponseDTO updateExpense(Long id, ExpenseRequestDTO dto) {
 
         User user = getCurrentUser();
+
         Expense existing = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Expense not found"));
 
@@ -180,43 +206,56 @@ public class ExpenseService {
             throw new RuntimeException("Unauthorized");
         }
 
-        existing.setAmount(expenseDetails.getAmount());
-        existing.setCategory(expenseDetails.getCategory());
-        existing.setDate(expenseDetails.getDate());
-        existing.setTitle(expenseDetails.getTitle());
-        existing.setNote(expenseDetails.getNote());
-        existing.setTags(expenseDetails.getTags());
+        existing.setAmount(dto.getAmount());
+        existing.setCategory(dto.getCategory());
+        existing.setTitle(dto.getTitle());
+        existing.setNote(dto.getNote());
+        existing.setTags(dto.getTags());
+        existing.setDate(dto.getDate());
 
-        return repo.save(existing);
+        Expense saved = repo.save(existing);
+
+        return mapToDTO(saved);
     }
 
-    public List<Expense> searchExpenses(String keyword) {
+    public List<ExpenseResponseDTO> searchExpenses(String keyword) {
 
         String key = keyword.toLowerCase();
 
         return repo.findByUser(getCurrentUser()).stream()
                 .filter(e -> (e.getTitle() != null && e.getTitle().toLowerCase().contains(key))
-                        || (e.getNote() != null && e.getNote().toLowerCase().contains(key))
-                        || (e.getTags() != null && e.getTags().toLowerCase().contains(key)))
+                        ||
+                        (e.getNote() != null && e.getNote().toLowerCase().contains(key))
+                        ||
+                        (e.getTags() != null && e.getTags().toLowerCase().contains(key)))
+                .map(this::mapToDTO)
                 .toList();
     }
 
-    public List<Expense> getSortedExpenses(String sortBy, String order) {
+    public List<ExpenseResponseDTO> getSortedExpenses(String sortBy, String order) {
 
         List<Expense> all = repo.findByUser(getCurrentUser());
 
         Comparator<Expense> comp;
 
         switch (sortBy.toLowerCase()) {
+
             case "amount":
                 comp = Comparator.comparingDouble(Expense::getAmount);
                 break;
+
             case "title":
-                comp = Comparator.comparing(Expense::getTitle, String.CASE_INSENSITIVE_ORDER);
+                comp = Comparator.comparing(
+                        Expense::getTitle,
+                        String.CASE_INSENSITIVE_ORDER);
                 break;
+
             case "category":
-                comp = Comparator.comparing(Expense::getCategory, String.CASE_INSENSITIVE_ORDER);
+                comp = Comparator.comparing(
+                        Expense::getCategory,
+                        String.CASE_INSENSITIVE_ORDER);
                 break;
+
             default:
                 comp = Comparator.comparing(Expense::getDate);
         }
@@ -224,6 +263,9 @@ public class ExpenseService {
         if (order.equalsIgnoreCase("desc"))
             comp = comp.reversed();
 
-        return all.stream().sorted(comp).toList();
+        return all.stream()
+                .sorted(comp)
+                .map(this::mapToDTO)
+                .toList();
     }
 }

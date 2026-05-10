@@ -1,9 +1,16 @@
 package com.expensetracker.controller;
 
-import com.expensetracker.model.Expense;
 import com.expensetracker.service.ExpenseService;
+
+import io.swagger.v3.oas.annotations.Operation;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import com.expensetracker.dto.ExpenseRequestDTO;
+import com.expensetracker.dto.ExpenseResponseDTO;
+
+import jakarta.validation.Valid;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -15,9 +22,10 @@ public class ExpenseController {
     @Autowired
     private ExpenseService service;
 
+    @Operation(summary = "Add new expense")
     @PostMapping
-    public Expense addExpense(@RequestBody Expense expense) {
-        return service.addExpense(expense);
+    public ExpenseResponseDTO addExpense(@Valid @RequestBody ExpenseRequestDTO dto) {
+        return service.addExpense(dto);
     }
 
     @DeleteMapping("/{id}")
@@ -31,17 +39,27 @@ public class ExpenseController {
     }
 
     @GetMapping
-    public List<Expense> getExpenses(
+    public List<ExpenseResponseDTO> getExpenses(
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String start,
             @RequestParam(required = false) String end,
             @RequestParam(required = false) Double minAmount,
             @RequestParam(required = false) Double maxAmount) {
 
-        LocalDateTime startDate = start != null ? LocalDateTime.parse(start + "T00:00:00") : null;
-        LocalDateTime endDate = end != null ? LocalDateTime.parse(end + "T23:59:59") : null;
+        LocalDateTime startDate = start != null
+                ? LocalDateTime.parse(start + "T00:00:00")
+                : null;
 
-        return service.getFilteredExpenses(category, startDate, endDate, minAmount, maxAmount);
+        LocalDateTime endDate = end != null
+                ? LocalDateTime.parse(end + "T23:59:59")
+                : null;
+
+        return service.getFilteredExpenses(
+                category,
+                startDate,
+                endDate,
+                minAmount,
+                maxAmount);
     }
 
     @GetMapping("/summary")
@@ -72,20 +90,25 @@ public class ExpenseController {
     }
 
     @PutMapping("/{id}")
-    public Expense updateExpense(@PathVariable Long id, @RequestBody Expense expense) {
-        return service.updateExpense(id, expense);
+    public ExpenseResponseDTO updateExpense(
+            @PathVariable Long id,
+            @RequestBody ExpenseRequestDTO dto) {
+
+        return service.updateExpense(id, dto);
     }
 
     @GetMapping("/search")
-    public List<Expense> searchExpenses(@RequestParam String keyword) {
+    public List<ExpenseResponseDTO> searchExpenses(
+            @RequestParam String keyword) {
+
         return service.searchExpenses(keyword);
     }
 
     @GetMapping("/sorted")
-    public List<Expense> getSortedExpenses(
+    public List<ExpenseResponseDTO> getSortedExpenses(
             @RequestParam(defaultValue = "date") String sortBy,
             @RequestParam(defaultValue = "desc") String order) {
+
         return service.getSortedExpenses(sortBy, order);
     }
-
 }
